@@ -30,7 +30,7 @@ ${chalk.bold('Environment:')}
   OPENAI_API_KEY       OpenAI key (final fallback)
 
 ${chalk.bold('Open source:')}
-  https://github.com/aco-hq/aco · BSL-1.1 License
+  https://github.com/BlocWeave/aco · Apache-2.0 License
 `)
 
 // ── init ──────────────────────────────────────────────────────────────────

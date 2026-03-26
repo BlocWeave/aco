@@ -42,6 +42,7 @@ These are firm. PRs in these categories will be closed without review.
 ### 1. Weakening the honesty constraints
 
 The hypothesizer system prompt (`src/agent/hypothesizer.ts`) contains explicit rules against:
+
 - Fabricating testimonials, user stories, or authority claims
 - Inventing conversion lift percentages
 - Producing generic advice not grounded in the actual page
@@ -148,16 +149,18 @@ PRs without test results or with failing checks will be left until they're fixed
 ## Reporting Issues
 
 Use GitHub Issues for:
+
 - Bug reports (include `aco --version`, Node.js version, OS, and full error output)
 - False or fabricated audit findings (include the URL and the problematic hypothesis)
 - Feature requests (describe the use case, not just the feature)
 
 Do not open issues for:
+
 - Help with your specific page or conversion funnel — this is a product question, not a bug
-- Commercial licensing questions — email [hello@aco.dev](mailto:hello@aco.dev)
+- Commercial licensing questions — email [hello@aco.blocweave.com](mailto:hello@aco.blocweave.com)
 
 ---
 
 ## Questions
 
-For anything not covered here: [hello@aco.dev](mailto:hello@aco.dev)
+For anything not covered here: [hello@aco.blocweave.com](mailto:hello@aco.blocweave.com)
