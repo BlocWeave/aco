@@ -1,0 +1,8 @@
+node_modules/
+dist/
+aco-report*.html
+reports/
+*.png
+.env
+.env.local
+program.md

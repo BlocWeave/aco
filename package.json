@@ -1,0 +1,53 @@
+{
+  "name": "@aco/cli",
+  "version": "0.1.0",
+  "description": "Autonomous Conversion Optimizer — open source CRO agent that never stops improving your landing page",
+  "type": "module",
+  "bin": {
+    "aco": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc && chmod +x dist/cli.js",
+    "dev": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "test:scenarios": "vitest run --config vitest.scenarios.config.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.36.3",
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "dotenv": "^17.3.1",
+    "openai": "^6.27.0",
+    "ora": "^8.1.1",
+    "playwright": "^1.48.2",
+    "sharp": "^0.34.5",
+    "simple-git": "^3.33.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/dotenv": "^6.1.1",
+    "@types/node": "^22.9.0",
+    "@vitest/coverage-v8": "^2.1.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "keywords": [
+    "cro",
+    "conversion",
+    "optimization",
+    "ai",
+    "autonomous",
+    "landing-page",
+    "ab-testing"
+  ],
+  "license": "Apache-2.0"
+}
