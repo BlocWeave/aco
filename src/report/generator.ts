@@ -337,9 +337,9 @@ export async function generateReport(input: ReportInput, outputPath?: string): P
       prediction about conversion lift. Validate every change with a controlled A/B test before drawing conclusions.
     </p>
     <div style="margin-top:16px;">
-      <a href="https://github.com/aco-hq/aco" style="font-size:12px;color:#3b82f6;">github.com/aco-hq/aco</a>
+      <a href="https://github.com/BlocWeave/aco" style="font-size:12px;color:#3b82f6;">github.com/BlocWeave/aco</a>
       <span style="color:#d1d5db;margin:0 8px;">·</span>
-      <span style="font-size:12px;color:#9ca3af;">Open source · BSL-1.1</span>
+      <span style="font-size:12px;color:#9ca3af;">Open source · Apache-2.0</span>
     </div>
   </div>
 
