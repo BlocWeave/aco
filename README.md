@@ -8,7 +8,7 @@ ACO is an open source AI agent that runs a continuous loop of hypothesis → cod
 npx @aco/cli audit stripe.com
 ```
 
-**210 tests passing · Apache-2.0 · SaaS at [aco.dev](https://aco.dev)**
+**210 tests passing · Apache-2.0 · SaaS at [aco.blocweave.com](https://aco.blocweave.com)**
 
 ---
 
@@ -21,6 +21,7 @@ aco audit stripe.com
 ```
 
 → Outputs `aco-report.html` with:
+
 - Conversion readiness scores (Clarity, Trust, Urgency, Social Proof)
 - 5–8 testable hypotheses, each grounded in a named Cialdini persuasion principle
 - The #1 conversion problem on the page
@@ -34,6 +35,7 @@ aco run
 ```
 
 → Runs the full loop on your local codebase:
+
 1. Playwright captures the page — screenshot, DOM, Core Web Vitals, accessibility
 2. Claude proposes a hypothesis grounded in Cialdini's principles
 3. Agent implements the change as a precise text diff
@@ -77,14 +79,14 @@ aco rollback
 
 ## Commands
 
-| Command | Description |
-|---|---|
-| `aco audit <url>` | One-shot audit → `aco-report.html` |
-| `aco init` | Scaffold `aco.md` with brand template |
-| `aco run` | Run one optimization cycle |
-| `aco run --continuous` | Run continuously on a schedule |
-| `aco status` | Show experiment history and outcomes |
-| `aco rollback` | Revert the last accepted experiment |
+| Command                | Description                           |
+| ---------------------- | ------------------------------------- |
+| `aco audit <url>`      | One-shot audit → `aco-report.html`    |
+| `aco init`             | Scaffold `aco.md` with brand template |
+| `aco run`              | Run one optimization cycle            |
+| `aco run --continuous` | Run continuously on a schedule        |
+| `aco status`           | Show experiment history and outcomes  |
+| `aco rollback`         | Revert the last accepted experiment   |
 
 ---
 
@@ -97,6 +99,7 @@ aco init   # scaffolds aco.md in the current directory
 ```
 
 Configure:
+
 - Your brand voice and target audience
 - The primary conversion goal (be specific: what counts as a conversion?)
 - What the agent is allowed to change (copy, CTAs, layout, social proof)
@@ -148,6 +151,7 @@ Other tools say "you're leaving 23% on the table." ACO doesn't.
 Without your real traffic data, any specific lift percentage is invented. A confident-sounding number that doesn't match reality destroys trust before you've built any.
 
 Instead, ACO gives you:
+
 - The **psychological principle** behind each finding (Cialdini: authority, social proof, scarcity, etc.)
 - The **specific element** that's underperforming and exactly why
 - The **concrete change** to make
@@ -161,17 +165,17 @@ The credibility comes from the reasoning quality. If it's sound, run the test. L
 
 Every hypothesis cites one of these:
 
-| Principle | CRO Application |
-|---|---|
-| **Reciprocity** | Give value before asking — free trial, free resource |
-| **Commitment** | Reduce commitment anxiety — match ask to trust level |
-| **Social Proof** | Show others doing it — testimonials, logos, counts |
-| **Authority** | Demonstrate expertise — credentials, press mentions |
-| **Scarcity** | Real urgency, not fake timers — limited spots, real deadlines |
-| **Liking** | People buy from people they like — tone, personality, faces |
-| **Unity** | Shared identity — "us" framing, community belonging |
-| **Clarity** | Remove cognitive friction — clear headline, obvious CTA |
-| **Trust** | Safety signals — guarantees, privacy, security badges |
+| Principle        | CRO Application                                               |
+| ---------------- | ------------------------------------------------------------- |
+| **Reciprocity**  | Give value before asking — free trial, free resource          |
+| **Commitment**   | Reduce commitment anxiety — match ask to trust level          |
+| **Social Proof** | Show others doing it — testimonials, logos, counts            |
+| **Authority**    | Demonstrate expertise — credentials, press mentions           |
+| **Scarcity**     | Real urgency, not fake timers — limited spots, real deadlines |
+| **Liking**       | People buy from people they like — tone, personality, faces   |
+| **Unity**        | Shared identity — "us" framing, community belonging           |
+| **Clarity**      | Remove cognitive friction — clear headline, obvious CTA       |
+| **Trust**        | Safety signals — guarantees, privacy, security badges         |
 
 ---
 
@@ -203,6 +207,7 @@ src/
 ```
 
 **Key decisions:**
+
 - `claude-sonnet-4-6` for audit and hypothesis quality
 - Structured output via `tool_use` — not "please output valid JSON" prompting
 - Zod validation on every LLM response — no silent schema failures
@@ -221,7 +226,7 @@ Token usage and estimated cost are shown after every command and included in the
 
 ## SaaS Dashboard
 
-The CLI is the open source core. For live traffic optimization, the [ACO SaaS](https://aco.dev) adds:
+The CLI is the open source core. For live traffic optimization, the [ACO SaaS](https://aco.blocweave.com) adds:
 
 - **Cloudflare edge traffic splitting** — MurmurHash3 bucketing, no cookies, no flicker
 - **Bayesian Multi-Armed Bandit** — Thompson Sampling promotes winners automatically
@@ -235,15 +240,15 @@ The CLI works standalone without a SaaS account. The SaaS requires a subscriptio
 
 ## Status
 
-| Phase | What | Status |
-|---|---|---|
-| 0 | `aco audit` — one-shot HTML report | ✅ Complete |
-| 1 | `aco run` — continuous local optimization loop, Git commits, visual regression | ✅ Complete — 210 tests |
-| 1 | `aco status`, `aco rollback` | ✅ Complete |
-| 1 | Multi-provider fallback (Anthropic → MIMO → OpenAI) | ✅ Complete |
-| 2 | SaaS: Fastify API + Next.js dashboard + Cloudflare Worker | ✅ Complete |
-| 2 | Clerk auth + Stripe billing + Bayesian MAB | ✅ Complete |
-| 3 | ClickHouse analytics at scale | Planned |
+| Phase | What                                                                           | Status                  |
+| ----- | ------------------------------------------------------------------------------ | ----------------------- |
+| 0     | `aco audit` — one-shot HTML report                                             | ✅ Complete             |
+| 1     | `aco run` — continuous local optimization loop, Git commits, visual regression | ✅ Complete — 210 tests |
+| 1     | `aco status`, `aco rollback`                                                   | ✅ Complete             |
+| 1     | Multi-provider fallback (Anthropic → MIMO → OpenAI)                            | ✅ Complete             |
+| 2     | SaaS: Fastify API + Next.js dashboard + Cloudflare Worker                      | ✅ Complete             |
+| 2     | Clerk auth + Stripe billing + Bayesian MAB                                     | ✅ Complete             |
+| 3     | ClickHouse analytics at scale                                                  | Planned                 |
 
 ---
 
@@ -268,4 +273,4 @@ The most valuable contributions right now:
 
 ---
 
-*Built in public by [BlocWeave](https://blocweave.com).*
+_Built in public by [BlocWeave](https://blocweave.com)._
