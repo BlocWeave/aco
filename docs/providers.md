@@ -20,12 +20,6 @@ Get a key at [console.anthropic.com](https://console.anthropic.com).
 
 **Model used:** `claude-sonnet-4-6` for both audits and optimization cycles.
 
-**Typical cost:**
-- `aco audit` — $0.02–$0.08 per audit (depends on page complexity and screenshot size)
-- `aco run` — $0.02–$0.08 per cycle (hypothesis + code generation)
-
-Token usage and estimated cost are printed after every command and included in the report footer.
-
 ---
 
 ## MIMO

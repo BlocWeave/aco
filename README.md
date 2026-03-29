@@ -216,14 +216,6 @@ src/
 
 ---
 
-## Cost
-
-Each audit uses `claude-sonnet-4-6` with vision. Typical cost: **$0.02–$0.08 per audit** depending on page complexity. Each optimization cycle: **$0.02–$0.08** for the hypothesis + code generation step.
-
-Token usage and estimated cost are shown after every command and included in the audit report footer.
-
----
-
 ## SaaS Dashboard
 
 The CLI is the open source core. For live traffic optimization, the [ACO SaaS](https://aco.blocweave.com) adds:
