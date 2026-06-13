@@ -182,6 +182,9 @@ export const ExperimentResultSchema = z.object({
   provider: z.string(),
   modelUsed: z.string(),
   changes: z.array(ChangeSpecSchema).optional(),
+  hypothesisPrinciple: z.enum(CIALDINI_PRINCIPLES).optional(),
+  hypothesisText: z.string().optional(),
+  hypothesisImpact: z.enum(['high', 'medium', 'low']).optional(),
 })
 
 export type ExperimentResult = z.infer<typeof ExperimentResultSchema>
