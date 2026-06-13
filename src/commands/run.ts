@@ -685,7 +685,7 @@ export async function runAcoRun(urlArg: string | undefined, options: RunCommandO
 interface MakeResultOptions {
   experimentId: string
   runId: string
-  hypothesis: { id: string; effort: string; element: string }
+  hypothesis: { id: string; effort: string; element: string; principle?: string; recommendation?: string; estimated_impact?: string }
   outcome: ExperimentResult['outcome']
   reason: string
   changes?: ChangeSpec[]
@@ -726,5 +726,8 @@ function makeResult(opts: MakeResultOptions): ExperimentResult {
     provider: opts.provider,
     modelUsed: opts.modelUsed,
     ...(opts.changes !== undefined ? { changes: opts.changes } : {}),
+    ...(opts.hypothesis.principle !== undefined ? { hypothesisPrinciple: opts.hypothesis.principle as import('../types.js').CialdianiPrinciple } : {}),
+    ...(opts.hypothesis.recommendation !== undefined ? { hypothesisText: opts.hypothesis.recommendation } : {}),
+    ...(opts.hypothesis.estimated_impact !== undefined ? { hypothesisImpact: opts.hypothesis.estimated_impact as 'high' | 'medium' | 'low' } : {}),
   }
 }
