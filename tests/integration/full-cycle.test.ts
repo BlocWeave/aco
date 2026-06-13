@@ -4,9 +4,9 @@
  * Exercises the complete loop:
  *   observe → hypothesize → generate → validate → apply → evaluate → commit → rollback
  *
- * Uses a real local HTTP server (no external network calls) and a real
- * temporary git repo. The LLM provider layer is mocked so tests are
- * deterministic and free.
+ * Uses a deterministic HTML fetch response and a real temporary git repo.
+ * Browser analysis and the LLM provider layer are mocked so tests are
+ * deterministic and free while orchestration and Git behavior remain real.
  *
  * What this covers that unit tests don't:
  *   - runAcoCore writes accepted proposals to results.jsonl correctly
@@ -16,12 +16,11 @@
  *   - aco.md is loaded correctly and constrains allowed categories
  */
 
-import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest'
-import * as http from 'node:http'
+import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as os from 'node:os'
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 
 // ─── Mock provider layer ──────────────────────────────────────────────────────
 
@@ -33,23 +32,45 @@ vi.mock('../../src/integrations/providers.js', async (importOriginal) => {
   }
 })
 
-// ─── Mock Playwright (visual regression — avoid real browser in CI) ───────────
+// ─── Mock page-analysis boundaries (browser extraction is tested separately) ─
 
-vi.mock('playwright', () => ({
-  chromium: {
-    launch: vi.fn().mockResolvedValue({
-      newContext: vi.fn().mockResolvedValue({
-        newPage: vi.fn().mockResolvedValue({
-          goto: vi.fn().mockResolvedValue(undefined),
-          screenshot: vi.fn().mockResolvedValue(Buffer.alloc(100, 0)),
-          evaluate: vi.fn().mockResolvedValue(0),
-          close: vi.fn().mockResolvedValue(undefined),
-        }),
-        close: vi.fn().mockResolvedValue(undefined),
-      }),
-      close: vi.fn().mockResolvedValue(undefined),
-    }),
-  },
+vi.mock('../../src/agent/observer.js', () => ({
+  observePage: vi.fn().mockResolvedValue({
+    url: 'http://localhost',
+    screenshotBase64: '',
+    screenshotPath: '/tmp/aco-before.png',
+    title: 'Test page',
+    metaDescription: '',
+    dom: {
+      headline: 'Test headline',
+      subheadline: null,
+      ctaText: ['Get Started'],
+      primaryCta: 'Get Started',
+      formFields: [],
+      socialProof: [],
+      trustSignals: [],
+      pricingInfo: null,
+      wordCount: 20,
+      hasVideo: false,
+      hasChat: false,
+      navItems: [],
+      pageStructure: 'main',
+    },
+    coreWebVitals: { lcp: null, fid: null, cls: null, fcp: null, ttfb: null, performanceScore: null },
+    accessibility: [],
+    capturedAt: new Date(),
+  }),
+}))
+
+vi.mock('../../src/agent/evaluator.js', () => ({
+  evaluateChange: vi.fn().mockResolvedValue({
+    similarityScore: 1,
+    passed: true,
+    threshold: 0.85,
+    beforePath: '/tmp/aco-before.png',
+    afterPath: '/tmp/aco-after.png',
+    diffPath: null,
+  }),
 }))
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -150,47 +171,42 @@ Visitors should click "Start Free Trial".
   )
 
   // Initialise git repo
-  execSync('git init -b main', { cwd: dir, stdio: 'ignore' })
-  execSync('git config user.email "test@aco.test"', { cwd: dir, stdio: 'ignore' })
-  execSync('git config user.name "ACO Test"', { cwd: dir, stdio: 'ignore' })
-  execSync('git add .', { cwd: dir, stdio: 'ignore' })
-  execSync('git commit -m "initial"', { cwd: dir, stdio: 'ignore' })
+  execFileSync('git', ['init', '-b', 'main'], { cwd: dir, stdio: 'ignore' })
+  execFileSync('git', ['config', 'user.email', 'test@aco.test'], { cwd: dir, stdio: 'ignore' })
+  execFileSync('git', ['config', 'user.name', 'ACO Test'], { cwd: dir, stdio: 'ignore' })
+  execFileSync('git', ['add', '.'], { cwd: dir, stdio: 'ignore' })
+  execFileSync('git', ['commit', '-m', 'initial'], { cwd: dir, stdio: 'ignore' })
 
   return dir
 }
 
-async function startLocalServer(dir: string, port: number): Promise<http.Server> {
-  const server = http.createServer(async (_req, res) => {
-    try {
-      const content = await fs.readFile(path.join(dir, 'index.html'), 'utf-8')
-      res.writeHead(200, { 'Content-Type': 'text/html' })
-      res.end(content)
-    } catch {
-      res.writeHead(500)
-      res.end('Error')
-    }
-  })
-  return new Promise((resolve) => server.listen(port, () => resolve(server)))
+function mockPageFetch(): void {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+    ok: true,
+    text: async () => '<button>Get Started</button>',
+  }))
 }
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('Full optimization cycle — runAcoCore (SaaS mode)', () => {
   let tmpDir: string
-  let server: http.Server
 
   beforeAll(async () => {
     tmpDir = await createTempProject()
-    server = await startLocalServer(tmpDir, 9876)
   })
 
   afterAll(async () => {
-    server.close()
     await fs.rm(tmpDir, { recursive: true, force: true })
   })
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockPageFetch()
   })
 
   it('writes accepted proposals to results.jsonl', async () => {
@@ -324,20 +340,18 @@ describe('Full optimization cycle — runAcoCore (SaaS mode)', () => {
 
 describe('Full optimization cycle — runAcoRun (CLI mode)', () => {
   let tmpDir: string
-  let server: http.Server
 
   beforeAll(async () => {
     tmpDir = await createTempProject()
-    server = await startLocalServer(tmpDir, 9877)
   })
 
   afterAll(async () => {
-    server.close()
     await fs.rm(tmpDir, { recursive: true, force: true })
   })
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockPageFetch()
   })
 
   it('applies change to file, commits to git, and aco status shows the experiment', async () => {
@@ -379,9 +393,14 @@ describe('Full optimization cycle — runAcoRun (CLI mode)', () => {
     expect(content).toContain('Start Free Trial')
     expect(content).not.toContain('Get Started')
 
-    // Git log should have an aco commit
-    const log = execSync('git log --oneline', { cwd: tmpDir }).toString()
-    expect(log).toContain('aco[H01]')
+    const { createResultsLogger, defaultLogPath } = await import('../../src/logger/results.js')
+    const results = await createResultsLogger(defaultLogPath(tmpDir)).readAll()
+    const accepted = results.find(result => result.outcome === 'accepted')
+    expect(accepted?.gitCommitHash).toBeTruthy()
+    expect(accepted?.filePath).toBe('index.html')
+    expect(accepted?.searchText).toBe('Get Started')
+    expect(accepted?.replacementText).toBe('Start Free Trial')
+    expect(accepted?.changes).toEqual(MOCK_CHANGE_SPEC.changes)
   })
 
   it('rollback reverts the last aco commit', async () => {
@@ -400,5 +419,131 @@ describe('Full optimization cycle — runAcoRun (CLI mode)', () => {
     const content = await fs.readFile(path.join(tmpDir, 'index.html'), 'utf-8')
     expect(content).toContain('Get Started')
     expect(content).not.toContain('Start Free Trial')
+  })
+})
+
+describe('Full optimization cycle — project quality gate', () => {
+  let tmpDir: string
+
+  beforeAll(async () => {
+    tmpDir = await createTempProject()
+    await fs.writeFile(path.join(tmpDir, 'aco.checks.sh'), 'echo "build failed" >&2\nexit 1\n', 'utf-8')
+    execFileSync('git', ['add', 'aco.checks.sh'], { cwd: tmpDir, stdio: 'ignore' })
+    execFileSync('git', ['commit', '-m', 'add checks'], { cwd: tmpDir, stdio: 'ignore' })
+  })
+
+  afterAll(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true })
+  })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockPageFetch()
+  })
+
+  it('rejects and restores a generated change when aco.checks.sh fails', async () => {
+    const { callWithFallback } = await import('../../src/integrations/providers.js')
+    const mock = vi.mocked(callWithFallback)
+
+    mock.mockResolvedValueOnce({
+      result: MOCK_AUDIT_RESPONSE,
+      usage: { inputTokens: 1000, outputTokens: 500, totalTokens: 1500, estimatedCostUsd: 0.01 },
+      provider: 'anthropic',
+      modelUsed: 'claude-sonnet-4-6',
+    })
+    mock.mockResolvedValueOnce({
+      result: MOCK_CHANGE_SPEC,
+      usage: { inputTokens: 500, outputTokens: 200, totalTokens: 700, estimatedCostUsd: 0.005 },
+      provider: 'anthropic',
+      modelUsed: 'claude-sonnet-4-6',
+    })
+
+    const originalCwd = process.cwd()
+    process.chdir(tmpDir)
+    try {
+      const { runAcoRun } = await import('../../src/commands/run.js')
+      await runAcoRun('http://localhost:9878', {
+        dryRun: false,
+        conservative: false,
+        budget: '1.00',
+        maxExperiments: '5',
+        port: '9878',
+      })
+    } finally {
+      process.chdir(originalCwd)
+    }
+
+    const content = await fs.readFile(path.join(tmpDir, 'index.html'), 'utf-8')
+    expect(content).toContain('Get Started')
+    expect(content).not.toContain('Start Free Trial')
+
+    const { createResultsLogger, defaultLogPath } = await import('../../src/logger/results.js')
+    const results = await createResultsLogger(defaultLogPath(tmpDir)).readAll()
+    expect(results[0]?.outcome).toBe('rejected')
+    expect(results[0]?.reason).toContain('Project quality checks failed')
+    expect(results[0]?.filePath).toBe('index.html')
+
+    expect(results[0]?.gitCommitHash).toBeUndefined()
+  })
+})
+
+describe('Full optimization cycle — quality gate side effects', () => {
+  let tmpDir: string
+
+  beforeAll(async () => {
+    tmpDir = await createTempProject()
+    await fs.writeFile(path.join(tmpDir, 'aco.checks.sh'), 'echo "generated" > unexpected.txt\nexit 0\n', 'utf-8')
+    execFileSync('git', ['add', 'aco.checks.sh'], { cwd: tmpDir, stdio: 'ignore' })
+    execFileSync('git', ['commit', '-m', 'add side-effect check'], { cwd: tmpDir, stdio: 'ignore' })
+  })
+
+  afterAll(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true })
+  })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockPageFetch()
+  })
+
+  it('rejects and stops when checks introduce an unexpected file', async () => {
+    const { callWithFallback } = await import('../../src/integrations/providers.js')
+    const mock = vi.mocked(callWithFallback)
+    mock.mockResolvedValueOnce({
+      result: MOCK_AUDIT_RESPONSE,
+      usage: { inputTokens: 1000, outputTokens: 500, totalTokens: 1500, estimatedCostUsd: 0.01 },
+      provider: 'anthropic',
+      modelUsed: 'claude-sonnet-4-6',
+    })
+    mock.mockResolvedValueOnce({
+      result: MOCK_CHANGE_SPEC,
+      usage: { inputTokens: 500, outputTokens: 200, totalTokens: 700, estimatedCostUsd: 0.005 },
+      provider: 'anthropic',
+      modelUsed: 'claude-sonnet-4-6',
+    })
+
+    const originalCwd = process.cwd()
+    process.chdir(tmpDir)
+    try {
+      const { runAcoRun } = await import('../../src/commands/run.js')
+      await runAcoRun('http://localhost:9879', {
+        dryRun: false,
+        conservative: false,
+        budget: '1.00',
+        maxExperiments: '5',
+        port: '9879',
+      })
+    } finally {
+      process.chdir(originalCwd)
+    }
+
+    const content = await fs.readFile(path.join(tmpDir, 'index.html'), 'utf-8')
+    expect(content).toContain('Get Started')
+
+    const { createResultsLogger, defaultLogPath } = await import('../../src/logger/results.js')
+    const results = await createResultsLogger(defaultLogPath(tmpDir)).readAll()
+    expect(results[0]?.outcome).toBe('rejected')
+    expect(results[0]?.reason).toContain('unexpected.txt')
+    expect(results[0]?.gitCommitHash).toBeUndefined()
   })
 })

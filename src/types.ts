@@ -181,6 +181,7 @@ export const ExperimentResultSchema = z.object({
   cumulativeRunCostUsd: z.number(),
   provider: z.string(),
   modelUsed: z.string(),
+  changes: z.array(ChangeSpecSchema).optional(),
 })
 
 export type ExperimentResult = z.infer<typeof ExperimentResultSchema>

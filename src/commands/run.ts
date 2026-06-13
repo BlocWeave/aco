@@ -7,10 +7,11 @@ import { observePage } from '../agent/observer.js'
 import { generateHypotheses } from '../agent/hypothesizer.js'
 import { generateChanges, validateChangeSpec } from '../agent/generator.js'
 import { evaluateChange } from '../agent/evaluator.js'
+import { runQualityChecks } from '../agent/checks.js'
 import { createGitClient } from '../integrations/git.js'
 import { createResultsLogger, defaultLogPath } from '../logger/results.js'
 import { loadAcoConfig } from '../config/program.js'
-import { DEFAULT_BUDGET, type BudgetConfig, type ChangeCategory, type ExperimentResult } from '../types.js'
+import { DEFAULT_BUDGET, type BudgetConfig, type ChangeCategory, type ChangeSpec, type ExperimentResult } from '../types.js'
 
 // ─── Options ──────────────────────────────────────────────────────────────
 
@@ -174,6 +175,7 @@ export async function runAcoCore(options: AcoCoreOptions): Promise<void> {
       filePath: change.filePath,
       searchText: change.searchText,
       replacementText: change.replacementText,
+      changes: [change],
     })
   }
 }
@@ -415,6 +417,7 @@ export async function runAcoRun(urlArg: string | undefined, options: RunCommandO
         experimentId, runId, hypothesis,
         outcome: 'rejected',
         reason: 'Change validation failed — searchText not found or ambiguous',
+        changes: generatorResult.changes,
         costUsd: generatorResult.usage.estimatedCostUsd,
         cumulativeRunCostUsd: cumulativeCostUsd,
         provider: generatorResult.provider, modelUsed: generatorResult.modelUsed,
@@ -437,6 +440,7 @@ export async function runAcoRun(urlArg: string | undefined, options: RunCommandO
         experimentId, runId, hypothesis,
         outcome: 'skipped',
         reason: 'dry-run',
+        changes: generatorResult.changes,
         costUsd: generatorResult.usage.estimatedCostUsd,
         cumulativeRunCostUsd: cumulativeCostUsd,
         provider: generatorResult.provider, modelUsed: generatorResult.modelUsed,
@@ -468,6 +472,7 @@ export async function runAcoRun(urlArg: string | undefined, options: RunCommandO
         experimentId, runId, hypothesis,
         outcome: 'error',
         reason: err instanceof Error ? err.message : String(err),
+        changes: generatorResult.changes,
         costUsd: generatorResult.usage.estimatedCostUsd,
         cumulativeRunCostUsd: cumulativeCostUsd,
         provider: generatorResult.provider, modelUsed: generatorResult.modelUsed,
@@ -487,6 +492,7 @@ export async function runAcoRun(urlArg: string | undefined, options: RunCommandO
         experimentId, runId, hypothesis,
         outcome: 'rejected',
         reason: 'Dev server timeout after applying changes',
+        changes: generatorResult.changes,
         costUsd: generatorResult.usage.estimatedCostUsd,
         cumulativeRunCostUsd: cumulativeCostUsd,
         provider: generatorResult.provider, modelUsed: generatorResult.modelUsed,
@@ -496,6 +502,56 @@ export async function runAcoRun(urlArg: string | undefined, options: RunCommandO
       continue
     }
     spinnerWait.succeed(chalk.green('Dev server ready'))
+
+    // Project verification gate (optional aco.checks.sh)
+    const pathsBeforeChecks = new Set(await gitClient.changedPaths())
+    const spinnerChecks = ora({ text: 'Running project quality checks…', prefixText: '    ' }).start()
+    const qualityChecks = await runQualityChecks(projectDir)
+    if (qualityChecks.configured) {
+      const newPaths = (await gitClient.changedPaths()).filter(filePath => !pathsBeforeChecks.has(filePath))
+      if (newPaths.length > 0) {
+        const reason = `Project quality checks modified additional files: ${newPaths.join(', ')}`
+        spinnerChecks.fail(chalk.red('Project quality checks changed files outside the proposal'))
+        await gitClient.restoreFiles(changedFiles)
+        await resultsLogger.append(makeResult({
+          experimentId, runId, hypothesis,
+          outcome: 'rejected',
+          reason,
+          changes: generatorResult.changes,
+          costUsd: generatorResult.usage.estimatedCostUsd,
+          cumulativeRunCostUsd: cumulativeCostUsd,
+          provider: generatorResult.provider, modelUsed: generatorResult.modelUsed,
+        }))
+        rejected++
+        console.log(chalk.yellow(`    ${reason}`))
+        console.log(chalk.dim('    Clean or ignore those outputs before running another experiment.'))
+        console.log()
+        break
+      }
+      if (!qualityChecks.passed) {
+        const reason = qualityChecks.timedOut
+          ? 'Project quality checks timed out'
+          : `Project quality checks failed (exit ${qualityChecks.exitCode ?? 'unknown'})`
+        spinnerChecks.fail(chalk.red(reason))
+        if (qualityChecks.output) console.log(chalk.dim(`    ${qualityChecks.output.slice(-500)}`))
+        await gitClient.restoreFiles(changedFiles)
+        await resultsLogger.append(makeResult({
+          experimentId, runId, hypothesis,
+          outcome: 'rejected',
+          reason,
+          changes: generatorResult.changes,
+          costUsd: generatorResult.usage.estimatedCostUsd,
+          cumulativeRunCostUsd: cumulativeCostUsd,
+          provider: generatorResult.provider, modelUsed: generatorResult.modelUsed,
+        }))
+        rejected++
+        console.log()
+        continue
+      }
+      spinnerChecks.succeed(chalk.green('Project quality checks passed'))
+    } else {
+      spinnerChecks.stop()
+    }
 
     // Visual regression
     const spinnerVR = ora({ text: 'Running visual regression check…', prefixText: '    ' }).start()
@@ -514,6 +570,7 @@ export async function runAcoRun(urlArg: string | undefined, options: RunCommandO
         experimentId, runId, hypothesis,
         outcome: 'error',
         reason: err instanceof Error ? err.message : String(err),
+        changes: generatorResult.changes,
         costUsd: generatorResult.usage.estimatedCostUsd,
         cumulativeRunCostUsd: cumulativeCostUsd,
         provider: generatorResult.provider, modelUsed: generatorResult.modelUsed,
@@ -534,6 +591,7 @@ export async function runAcoRun(urlArg: string | undefined, options: RunCommandO
         experimentId, runId, hypothesis,
         outcome: 'rejected',
         reason: `Visual regression failed: ${(vrResult.similarityScore * 100).toFixed(1)}% similarity`,
+        changes: generatorResult.changes,
         visualSimilarity: vrResult.similarityScore,
         costUsd: generatorResult.usage.estimatedCostUsd,
         cumulativeRunCostUsd: cumulativeCostUsd,
@@ -573,6 +631,7 @@ export async function runAcoRun(urlArg: string | undefined, options: RunCommandO
         experimentId, runId, hypothesis,
         outcome: 'error',
         reason: err instanceof Error ? err.message : String(err),
+        changes: generatorResult.changes,
         visualSimilarity: vrResult.similarityScore,
         costUsd: generatorResult.usage.estimatedCostUsd,
         cumulativeRunCostUsd: cumulativeCostUsd,
@@ -587,6 +646,7 @@ export async function runAcoRun(urlArg: string | undefined, options: RunCommandO
       experimentId, runId, hypothesis,
       outcome: 'accepted',
       reason: 'Visual regression passed, committed successfully',
+      changes: generatorResult.changes,
       visualSimilarity: vrResult.similarityScore,
       gitCommitHash: commitHash,
       costUsd: generatorResult.usage.estimatedCostUsd,
@@ -628,6 +688,7 @@ interface MakeResultOptions {
   hypothesis: { id: string; effort: string; element: string }
   outcome: ExperimentResult['outcome']
   reason: string
+  changes?: ChangeSpec[]
   visualSimilarity?: number
   gitCommitHash?: string
   costUsd: number
@@ -646,15 +707,16 @@ const EFFORT_TO_CATEGORY_MAP: Record<string, string> = {
 }
 
 function makeResult(opts: MakeResultOptions): ExperimentResult {
+  const primaryChange = opts.changes?.[0]
   return {
     experimentId: opts.experimentId,
     runId: opts.runId,
     timestamp: new Date().toISOString(),
     hypothesisId: opts.hypothesis.id,
     category: (EFFORT_TO_CATEGORY_MAP[opts.hypothesis.effort] ?? 'copy') as ChangeCategory,
-    filePath: '',
-    searchText: '',
-    replacementText: '',
+    filePath: primaryChange?.filePath ?? '',
+    searchText: primaryChange?.searchText ?? '',
+    replacementText: primaryChange?.replacementText ?? '',
     outcome: opts.outcome,
     reason: opts.reason,
     ...(opts.visualSimilarity !== undefined ? { visualSimilarity: opts.visualSimilarity } : {}),
@@ -663,5 +725,6 @@ function makeResult(opts: MakeResultOptions): ExperimentResult {
     cumulativeRunCostUsd: opts.cumulativeRunCostUsd,
     provider: opts.provider,
     modelUsed: opts.modelUsed,
+    ...(opts.changes !== undefined ? { changes: opts.changes } : {}),
   }
 }
