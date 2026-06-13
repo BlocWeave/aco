@@ -2,13 +2,13 @@
 
 > Your landing page, optimizing itself.
 
-ACO is an open source AI agent that runs a continuous loop of hypothesis → code change → visual regression → Git commit on your landing pages. It keeps what works, reverts what doesn't — and runs 24/7 without a CRO team.
+ACO is an open source AI agent that audits landing pages and runs guarded local optimization cycles: hypothesis → code change → project checks → visual regression → Git commit. A passing cycle records a validated candidate for you to measure with real traffic.
 
 ```bash
 npx @aco/cli audit stripe.com
 ```
 
-**210 tests passing · Apache-2.0 · SaaS at [aco.blocweave.com](https://aco.blocweave.com)**
+**Apache-2.0 · SaaS at [aco.blocweave.com](https://aco.blocweave.com)**
 
 ---
 
@@ -28,7 +28,7 @@ aco audit stripe.com
 - Quick wins achievable in under 30 minutes
 - Full-page screenshot at audit time
 
-**Continuous autonomous optimization:**
+**Guarded local optimization cycle:**
 
 ```bash
 aco run
@@ -41,7 +41,7 @@ aco run
 3. Agent implements the change as a precise text diff
 4. Visual regression validates the page looks intact
 5. Passes → Git commit. Fails → automatic revert
-6. Repeat
+6. You measure the candidate and choose what to retain or roll back
 
 ---
 
@@ -65,7 +65,7 @@ aco audit stripe.com --mobile
 # Initialize a campaign (creates aco.md)
 aco init
 
-# Run a continuous optimization cycle
+# Run one guarded optimization cycle
 aco run
 
 # Check experiment status
@@ -84,7 +84,6 @@ aco rollback
 | `aco audit <url>`      | One-shot audit → `aco-report.html`    |
 | `aco init`             | Scaffold `aco.md` with brand template |
 | `aco run`              | Run one optimization cycle            |
-| `aco run --continuous` | Run continuously on a schedule        |
 | `aco status`           | Show experiment history and outcomes  |
 | `aco rollback`         | Revert the last accepted experiment   |
 
@@ -106,6 +105,22 @@ Configure:
 - What it must never touch (pricing, legal text, specific brand elements)
 
 Full reference: [docs/aco-md.md](docs/aco-md.md)
+
+---
+
+## Project Quality Checks
+
+Visual similarity prevents broken-looking variants, but it cannot prove that a generated change still builds or passes your tests. To add a project-specific gate, create `aco.checks.sh` in the project root:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+npm run typecheck
+npm test -- --run
+npm run build
+```
+
+When the file exists, `aco run` executes it after applying a proposed change and before visual regression or Git commit. A non-zero exit or a five-minute timeout rejects the experiment and restores the changed files. If the script creates or changes additional tracked/unignored files, ACO rejects the experiment and stops so you can clean or ignore those outputs. The check output is recorded in the terminal, while the rejected proposal remains in `.aco/results.jsonl` for auditability.
 
 ---
 
@@ -187,7 +202,8 @@ src/
 │   ├── observer.ts        # Playwright: screenshot, DOM, CWV, a11y
 │   ├── hypothesizer.ts    # Claude: generate hypotheses (tool_use)
 │   ├── generator.ts       # Claude: implement hypothesis as text diff
-│   └── evaluator.ts       # Visual regression: sharp pixel comparison
+│   ├── evaluator.ts       # Visual regression: sharp pixel comparison
+│   └── checks.ts          # Optional aco.checks.sh correctness gate
 ├── integrations/
 │   ├── claude.ts          # Anthropic SDK: structured output, token tracking
 │   ├── providers.ts       # Multi-provider fallback (Anthropic → MIMO → OpenAI)
@@ -220,10 +236,10 @@ src/
 
 The CLI is the open source core. For live traffic optimization, the [ACO SaaS](https://aco.blocweave.com) adds:
 
-- **Cloudflare edge traffic splitting** — MurmurHash3 bucketing, no cookies, no flicker
-- **Bayesian Multi-Armed Bandit** — Thompson Sampling promotes winners automatically
-- **Human approval workflow** — review diff + before/after screenshots before anything goes live
-- **Experiment timeline** — full Git-native history of every change and its outcome
+- **Managed live traffic tests** — stable visitor bucketing and conversion event collection
+- **Statistical review** — evidence and anomaly flags before a candidate is promoted
+- **Human approval workflow** — review a validated live test before promoting a winning variant
+- **Experiment timeline** — change history and measured outcomes
 - **Team access** — org management, role-based permissions
 
 The CLI works standalone without a SaaS account. The SaaS requires a subscription for live traffic campaigns.
@@ -235,11 +251,11 @@ The CLI works standalone without a SaaS account. The SaaS requires a subscriptio
 | Phase | What                                                                           | Status                  |
 | ----- | ------------------------------------------------------------------------------ | ----------------------- |
 | 0     | `aco audit` — one-shot HTML report                                             | ✅ Complete             |
-| 1     | `aco run` — continuous local optimization loop, Git commits, visual regression | ✅ Complete — 210 tests |
+| 1     | `aco run` — guarded local cycle, Git commits, visual regression and optional project checks | Complete |
 | 1     | `aco status`, `aco rollback`                                                   | ✅ Complete             |
 | 1     | Multi-provider fallback (Anthropic → MIMO → OpenAI)                            | ✅ Complete             |
 | 2     | SaaS: Fastify API + Next.js dashboard + Cloudflare Worker                      | ✅ Complete             |
-| 2     | Clerk auth + Stripe billing + Bayesian MAB                                     | ✅ Complete             |
+| 2     | Clerk auth + Stripe billing + Bayesian MAB analysis                            | Complete                |
 | 3     | ClickHouse analytics at scale                                                  | Planned                 |
 
 ---

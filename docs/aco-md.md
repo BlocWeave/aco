@@ -62,7 +62,7 @@ List the categories of changes the agent is permitted to make. Be explicit — a
 
 # Constraints — Do Not Touch
 
-ACO will never modify the following, regardless of what it thinks might improve conversion:
+Instruct ACO not to modify the following, regardless of what it thinks might improve conversion:
 
 - Pricing (amounts, trial lengths, plan names)
 - Legal text (terms, privacy policy, cookie notice)

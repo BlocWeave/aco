@@ -1,7 +1,7 @@
 {
   "name": "@aco/cli",
   "version": "0.1.0",
-  "description": "Autonomous Conversion Optimizer — open source CRO agent that never stops improving your landing page",
+  "description": "Open source CRO agent for landing-page audits and guarded optimization cycles",
   "type": "module",
   "bin": {
     "aco": "./dist/cli.js"

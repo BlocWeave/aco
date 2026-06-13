@@ -26,6 +26,7 @@ export class GitError extends Error {
 export interface GitClient {
   readonly repoDir: string
   isClean(): Promise<boolean>
+  changedPaths(): Promise<string[]>
   currentBranch(): Promise<string>
   stageFile(filePath: string): Promise<void>
   commit(message: string): Promise<string>
@@ -51,6 +52,15 @@ class GitClientImpl implements GitClient {
     try {
       const status = await this._git.status()
       return status.isClean()
+    } catch (err) {
+      throw wrapGitError(err, 'GIT_ERROR')
+    }
+  }
+
+  async changedPaths(): Promise<string[]> {
+    try {
+      const status = await this._git.status()
+      return status.files.map(file => file.path)
     } catch (err) {
       throw wrapGitError(err, 'GIT_ERROR')
     }
